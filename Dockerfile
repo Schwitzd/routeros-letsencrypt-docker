@@ -1,5 +1,5 @@
 # Dockerfile: https://hub.docker.com/r/goacme/lego/
-FROM goacme/lego:v4.23.1
+FROM goacme/lego:v5.4
 
 # Define version argument and label
 ARG VERSION

@@ -17,6 +17,8 @@ ROUTEROS_SSH_PORT=${ROUTEROS_SSH_PORT:=22}
 SET_ON_WEB=${SET_ON_WEB:=true}
 SET_ON_API=${SET_ON_API:=true}
 SET_ON_OVPN=${SET_ON_OVPN:=false}
+SET_ON_REVERSE_PROXY=${SET_ON_REVERSE_PROXY:=false}
+REVERSE_PROXY_DOMAINS="${REVERSE_PROXY_DOMAINS:-}"
 SET_ON_HOTSPOT=${SET_ON_HOTSPOT:=false}
 HOTSPOT_PROFILE_NAME=${HOTSPOT_PROFILE_NAME:-}
 
@@ -33,7 +35,7 @@ else
 fi
 
 LEGO_DOMAINS=${LEGO_DOMAINS:-}
-LEGO_DOMAINS="$(echo -e "${LEGO_DOMAINS}" | tr -d '[:space:]')" # Remove all whitespace 
+LEGO_DOMAINS="$(echo -e "${LEGO_DOMAINS}" | tr -d '[:space:]')" # Remove all whitespace
 echo "LEGO domains: $LEGO_DOMAINS"
 LEGO_DOMAINS=$(  ( [ -n "$LEGO_DOMAINS" ] && echo ${LEGO_DOMAINS//;/ --domains } ) )
 
@@ -67,7 +69,7 @@ else
 fi
 
 if [ -n "$LEGO_PROVIDER" ]; then
-    /lego run --server $ENDPOINT --path /letsencrypt --accept-tos --key-type=$LEGO_KEY_TYPE --domains $LEGO_DOMAINS --email $LEGO_EMAIL_ADDRESS --pem --dns $LEGO_PROVIDER --dns.timeout $LEGO_DNS_TIMEOUT $LEGO_ARGS $LEGO_MODE 
+    /lego run --server $ENDPOINT --path /letsencrypt --accept-tos --key-type=$LEGO_KEY_TYPE --domains $LEGO_DOMAINS --email $LEGO_EMAIL_ADDRESS --pem --dns $LEGO_PROVIDER --dns.timeout $LEGO_DNS_TIMEOUT $LEGO_ARGS $LEGO_MODE
 else
     /lego run --server $ENDPOINT --path /letsencrypt --accept-tos --key-type=$LEGO_KEY_TYPE --domains $LEGO_DOMAINS --email $LEGO_EMAIL_ADDRESS --pem $LEGO_ARGS $LEGO_MODE
 fi
@@ -191,6 +193,20 @@ if [ "$SET_ON_HOTSPOT" = true ]; then
     echo -n "Setting certificate to Hotspot..."
     $routeros /ip/hotspot/profile set ssl-certificate=$ROUTEROS_FILENAME.pem_0 $HOTSPOT_PROFILE_NAME > /dev/null
     [ ! $? == 0 ] && echo 'ERROR!' && exit 1 || echo 'DONE'
+fi
+
+# Set certificate to Reverse Proxy
+if [ "$SET_ON_REVERSE_PROXY" = true ]; then
+    echo -n "Setting certificate to Reverse Proxy..."
+    $routeros /ip service set reverse-proxy certificate=$ROUTEROS_FILENAME.pem_0 > /dev/null
+    [ ! $? == 0 ] && echo 'ERROR!' && exit 1 || echo 'DONE'
+
+    for DOMAIN in $(echo "$REVERSE_PROXY_DOMAINS" | tr ',' ' ')
+    do
+        echo -n "Setting certificate to Reverse Proxy Domain $DOMAIN..."
+        $routeros /ip/reverse-proxy/set [find sni=$DOMAIN] certificate=$ROUTEROS_FILENAME.pem_0 > /dev/null
+        [ ! $? == 0 ] && echo 'ERROR!' && exit 1 || echo 'DONE'
+    done
 fi
 
 echo "End cycle at $( date '+%Y-%m-%d %H:%M:%S' )"
